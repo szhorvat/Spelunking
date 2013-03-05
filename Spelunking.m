@@ -36,7 +36,8 @@ fancydefinition[symbol_Symbol] :=
       s_String?(StringMatchQ[#, __ ~~ "`" ~~ __] &) :> 
        First@StringCases[s, 
          a : (__ ~~ "`" ~~ b__) :> processsymbol[a, b]]]], "Input", 
-   Background -> RGBColor[1, 0.95, 0.9]];
+   Background -> RGBColor[1, 0.95, 0.9],
+   CellGroupingRules->"GraphicsGrouping"];
 
 processsymbol[a_, b_] := Module[{db},
   Which[
