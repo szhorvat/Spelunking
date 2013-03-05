@@ -35,8 +35,15 @@ fancydefinition[symbol_Symbol] :=
      defboxes[symbol] /. 
       s_String?(StringMatchQ[#, __ ~~ "`" ~~ __] &) :> 
        First@StringCases[s, 
-         a : (__ ~~ "`" ~~ b__) :> processsymbol[a, b]]]], "Input", 
-   Background -> RGBColor[1, 0.95, 0.9]];
+         a : (__ ~~ "`" ~~ b__) :> processsymbol[a, b]]]],"Output", 
+   Background -> RGBColor[1, 0.95, 0.9],
+   CellGroupingRules->"OutputGrouping",
+   GeneratedCell->True,
+   CellAutoOverwrite->True,
+   ShowAutoStyles->True,
+   LanguageCategory->"Mathematica",
+   FontWeight->"Bold"
+   ];
 
 processsymbol[a_, b_] := Module[{db},
   Which[
