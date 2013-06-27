@@ -120,7 +120,7 @@ symbolbox[shrt_,full_,att_]:=TagBox[TooltipBox[shrt,gbox[full,att]],
 
 spelunkcellprint[boxes_]:=CellPrint[Cell[BoxData[boxes], "Output",
 Background->RGBColor[1, 0.95, 0.9],
-CellGroupingRules->"OutputGrouping",
+CellGroupingRules->"GraphicsGrouping",
 GeneratedCell->True,CellAutoOverwrite->True,
 ShowAutoStyles->True,LanguageCategory->"Mathematica",
 FontWeight->"Bold",ShowStringCharacters->True]]
