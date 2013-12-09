@@ -2,7 +2,7 @@ Spelunking
 ==========
 
 A package to read definitions of in-memory Mathematica functions with ease.
-Developed by Simon Woods and other [in this Mathematica.SE thread](http://mathematica.stackexchange.com/a/15948/12).
+Developed by Simon Woods and others [in this Mathematica.SE thread](http://mathematica.stackexchange.com/a/15948/12).
 
 **Usage:**
 
