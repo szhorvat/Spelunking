@@ -8,7 +8,7 @@
 
 BeginPackage["Spelunking`"];
 
-Spelunk::usage = "Spelunk[symbol]";
+Spelunk::usage = "Spelunk[symbol] will discover the definition of symbol.  Underlined symbols in the output are clickable.";
 
 Begin["`Private`"];
 
