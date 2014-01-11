@@ -36,6 +36,7 @@ fancydefinition[symbol_Symbol] :=
       s_String?(StringMatchQ[#, __ ~~ "`" ~~ __] &) :> 
        First@StringCases[s, 
          a : (__ ~~ "`" ~~ b__) :> processsymbol[a, b]]]],"Output", 
+   ShowStringCharacters -> True,
    Background -> RGBColor[1, 0.95, 0.9],
    CellGroupingRules->"OutputGrouping",
    GeneratedCell->True,
@@ -52,8 +53,9 @@ processsymbol[a_, b_] := Module[{db},
    TooltipBox[b, a],
    db === "Locked", TooltipBox[b, a <> "\nLocked Symbol"],
    db === "DefError", TooltipBox[b, a <> "\nError getting Definition"],
-   True, ButtonBox[TooltipBox[b, a], ButtonFunction :> Spelunk@a, 
-    BaseStyle -> {}, Evaluator -> Automatic]]]
+   True, ActionMenuBox[TooltipBox[b, a], {"Discover function" :> Spelunk@a, "Copy full name" :> CopyToClipboard@InputForm@a},
+                       BaseStyle -> {}, Appearance->"Palette", Evaluator -> Automatic]
+   ]]
 
 Spelunk[symbol_Symbol] := CellPrint[fancydefinition[symbol]];
 
