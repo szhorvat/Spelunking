@@ -53,7 +53,7 @@ processsymbol[a_, b_] := Module[{db},
    TooltipBox[b, a],
    db === "Locked", TooltipBox[b, a <> "\nLocked Symbol"],
    db === "DefError", TooltipBox[b, a <> "\nError getting Definition"],
-   True, ActionMenuBox[TooltipBox[StyleBox[b, FontVariations->{"Underline"->True}], a], {"Discover function" :> Spelunk[a], "Copy full name" :> CopyToClipboard@InputForm[a]},
+   True, ActionMenuBox[TooltipBox[StyleBox[b, FontVariations->{"Underline"->True}], a], {"Discover function" :> Spelunk[a], "Copy full name" :> CopyToClipboard@Cell[a, "Input"]},
                        DefaultBaseStyle -> {"Input"}, Appearance->"None", Evaluator -> Automatic]
    ]]
 
