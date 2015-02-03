@@ -68,7 +68,7 @@ def[sym_Symbol]:=Module[{att=Attributes[sym]},
 {If[MemberQ[att, Locked], "Null",
 Internal`InheritedBlock[{sym},Unprotect[sym]; ClearAttributes[sym, ReadProtected];
 MathLink`CallFrontEnd[FrontEnd`UndocumentedTestFEParserPacket[
-ToString[Definition[sym], InputForm],True]][[1,1]] ]],ToString@att}]
+ToString[Definition[sym], InputForm],False]][[1,1]] ]],ToString@att}]
 
 
 def[s_String]:=ToExpression[s,InputForm,def]
