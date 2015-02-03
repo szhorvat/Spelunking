@@ -38,9 +38,9 @@ SetAttributes[Spelunk,HoldFirst]
 
 Spelunk[symbol_Symbol]:=Module[{outboxes},
 outboxes=First[def[symbol]]/.tidyup;
-If[FreeQ[outboxes,"System`Dump`AutoLoad"]||Hold[symbol]===Hold[System`Dump`AutoLoad],
-output[outboxes],
-output[gbox[MakeBoxes[Button["Autoload this function",(symbol;Spelunk[symbol])]],outboxes]]]]
+output[outboxes];
+If[!FreeQ[outboxes,"System`Dump`AutoLoad"]&&Hold[symbol]=!=Hold[System`Dump`AutoLoad],
+output[MakeBoxes[Button["Autoload and Spelunk this function",symbol;Spelunk[symbol]]]]]]
 
 
 Spelunk[s_String]:=ToExpression[s,InputForm,Spelunk]
@@ -58,10 +58,17 @@ Spelunk[s_String]:=ToExpression[s,InputForm,Spelunk]
 SetAttributes[def,HoldFirst]
 
 
+(* old version using MakeBoxes *)
+(*def[sym_Symbol]:=Module[{att=Attributes[sym]},
+{If[MemberQ[att, Locked], "Null",
+Internal`InheritedBlock[{sym},Unprotect[sym]; ClearAttributes[sym, ReadProtected];
+Quiet[MakeBoxes[Definition@sym] //. InterpretationBox[a_, ___] :> a] ]],ToString@att}]*)
+
 def[sym_Symbol]:=Module[{att=Attributes[sym]},
 {If[MemberQ[att, Locked], "Null",
 Internal`InheritedBlock[{sym},Unprotect[sym]; ClearAttributes[sym, ReadProtected];
-Quiet[MakeBoxes[Definition@sym] /. InterpretationBox[a_, ___] :> a] ]],ToString@att}]
+MathLink`CallFrontEnd[FrontEnd`UndocumentedTestFEParserPacket[
+ToString[Definition[sym], InputForm],True]][[1,1]] ]],ToString@att}]
 
 
 def[s_String]:=ToExpression[s,InputForm,def]
@@ -76,7 +83,8 @@ def[s_String]:=ToExpression[s,InputForm,def]
 (*A string is considered to represent a symbol if it contains context marks and doesn't start with an explicit quote mark (so that string literals are left alone)*)
 
 
-tidyup=s_String:>First@StringCases[s,{a:(Except["\""]~~___~~"`"~~b__):>processsymbol[a,b],other__:>other}];
+tidyup=s_String:>First@StringCases[s,{a:(c:Except["\""]..~~"`"~~b__)/;!StringMatchQ[c,NumberString]:>
+processsymbol[a,b],other__:>other}];
 
 
 (* ::Text:: *)
@@ -126,7 +134,9 @@ ShowAutoStyles->True,LanguageCategory->"Mathematica",
 FontWeight->"Bold",ShowStringCharacters->True]]
 
 
-prettyboxes[boxes_]:=boxes/.{" "}->{"\n-----------\n"}//.{RowBox[{left___,";",next:Except["\n"],right___}]:>RowBox[{left,";","\n","\t",next,right}],RowBox[{sc:("Block"|"Module"|"With"),"[",RowBox[{vars_,",",body_}],"]"}]:>RowBox[{sc,"[",RowBox[{vars,",","\n\t",body}],"]"}]}
+prettyboxes[boxes_]:=boxes/.{" "}->{"\n-----------\n"}//.{RowBox[{left___,";",next:Except["\n"],right___}]:>
+RowBox[{left,";","\n","\t",next,right}],RowBox[{sc:("Block"|"Module"|"With"),"[",RowBox[{vars_,",",body_}],"]"}]:>
+RowBox[{sc,"[",RowBox[{vars,",","\n\t",body}],"]"}]}
 
 
 output=spelunkcellprint @ prettyboxes @ #&;
