@@ -11,39 +11,69 @@
 BeginPackage["Spelunking`"]
 
 
-Spelunk::usage="Spelunk[symbol]"
+(* ::Subsection:: *)
+(*Public interface*)
+
+
+Spelunk::usage="Spelunk[symbol] shows the definition of symbol (if it has one) but hides the context part of symbols for easier reading. Symbols have a tooltip showing their full name and any attributes. Any symbol (other than system symbols) with a readable definition is presented as a button which runs Spelunk on that symbol. The full symbol name may be copied to the clipboard by right-clicking on it.
+
+Example: Spelunk[BarChart]";
+
+LoadEverything::usage="LoadEverything[] evaluates every symbol it can find with an AutoLoad trigger, this can be used to increase the scope of SpelunkSearch. Save your work first!";
+
+SpelunkSearch::usage="SpelunkSearch[symbolpattern, stringpattern] is used to find symbols whose names match symbolpattern (the same syntax as Names). The results are sorted by context and are clickable to run Spelunk on them. stringpattern is an optional pattern to filter the results to those containing the pattern in their definition.
+
+Example: SpelunkSearch[\"Region*`*\"]
+Example: SpelunkSearch[\"Region*`*\",\"RegionEmbeddingDimension\"]";
 
 
 Begin["`Private`"]
 
 
 (* ::Subsection:: *)
-(*Main function*)
+(*Exported functions*)
 
 
 (* ::Text:: *)
-(*Spelunk[symbol] gets the Definition of symbol in box form using def[] and then applies the rule tidyup to tidy it up.*)
-(*Tidying up consists primarily of replacing the full names of symbols (i.e. including context) with short names, with the full name and the symbol's attributes put into a tooltip.*)
-(*After tidying up, the boxes are printed to a cell using output[] which does some nice code formatting.*)
-(**)
-(*Additional features:*)
-(*Any symbol with a definition is presented as a button which runs Spelunk on that symbol.*)
-(*The full symbol name may be copied to the clipboard by right-clicking on it.*)
-(**)
-(*Note that Spelunk also works with symbols as strings, so you can do things like Spelunk /@ Names["Image`*"] to spelunk a whole context.*)
+(*Spelunk gets the boxes for the definition of a symbol, applies the formatting rules and pretty-prints the result*)
 
 
 SetAttributes[Spelunk,HoldFirst]
 
 
-Spelunk[symbol_Symbol]:=Module[{outboxes},
-outboxes=First[def[symbol]]/.tidyup;
-output[outboxes];
-If[!FreeQ[outboxes,"System`Dump`AutoLoad"]&&Hold[symbol]=!=Hold[System`Dump`AutoLoad],
-output[MakeBoxes[Button["Autoload and Spelunk this function",symbol;Spelunk[symbol]]]]]]
+Spelunk[sym_Symbol]:=Module[{outboxes},
+outboxes=defboxes[sym]/.symbolrules;
+If[hasAutoLoad[sym],output@autoLoadButton@sym];
+output[outboxes]]
 
 
 Spelunk[s_String]:=ToExpression[s,InputForm,Spelunk]
+
+
+(* ::Text:: *)
+(*LoadEverything autoloads everything it can find*)
+
+
+LoadEverything[]:=Module[{n1,n2},
+n1=Names["*`*"];
+Quiet@Scan[If[hasAutoLoad[#],Symbol[#]]&,n1];
+n2=Names["*`*"];
+Row[{"Loaded ",Length[n2]-Length[n1]," symbols"}]]
+
+
+(* ::Text:: *)
+(*SpelunkSearch filters first on symbol names and then on the contents of the definition*)
+
+
+SpelunkSearch[np_,s_:""]:=Module[{names,buttonfunc},
+names=Select[Names[np],isDefinition[First@definitionString[#],True]&] ;
+names=DeleteCases[names,"In"|"InString"|"Out"];
+If[s=!="",names=Select[names,!StringFreeQ[First@definitionString[#],s]&]];
+names=names~SortBy~ Context ~SplitBy~ Context;
+buttonfunc=Button[StringReplace[#,__~~"`":>""],Spelunk[#],Appearance->"Frameless"]&;
+Panel@Column[OpenerView[
+{Context[Evaluate@First@#],Column[buttonfunc/@#]}]&/@names,
+Frame->All,FrameStyle->Thin]]
 
 
 (* ::Subsection:: *)
@@ -51,27 +81,62 @@ Spelunk[s_String]:=ToExpression[s,InputForm,Spelunk]
 
 
 (* ::Text:: *)
-(*def[sym] gets the box form of the Definition of sym, and the attributes of sym.*)
+(*definitionString gets the string form of the definition of sym, and the attributes of sym.*)
 (*The definition is set to "Null" if the symbol is Locked (symbols with no definition also return "Null")*)
 
 
-SetAttributes[def,HoldFirst]
+SetAttributes[definitionString,HoldFirst]
 
 
-(* old version using MakeBoxes *)
-(*def[sym_Symbol]:=Module[{att=Attributes[sym]},
-{If[MemberQ[att, Locked], "Null",
+definitionString[definitionString]={"Null",""};  (* prevent recursive memoisation *)
+
+
+definitionString[sym_Symbol]:=Module[{att=Attributes[sym]},
+{If[MemberQ[att, Locked],"Null",
 Internal`InheritedBlock[{sym},Unprotect[sym]; ClearAttributes[sym, ReadProtected];
-Quiet[MakeBoxes[Definition@sym] //. InterpretationBox[a_, ___] :> a] ]],ToString@att}]*)
+ToString[Definition[sym], InputForm]]~Quiet~Set::specset],ToString@att}]
 
-def[sym_Symbol]:=Module[{att=Attributes[sym]},
-{If[MemberQ[att, Locked], "Null",
-Internal`InheritedBlock[{sym},Unprotect[sym]; ClearAttributes[sym, ReadProtected];
+
+definitionString[s_String]:=ToExpression[s,InputForm,definitionString]
+
+
+(* ::Text:: *)
+(*defboxes converts the definition string into box form*)
+
+
+SetAttributes[defboxes,HoldFirst]
+
+
+defboxes[sym_]:=
 MathLink`CallFrontEnd[FrontEnd`UndocumentedTestFEParserPacket[
-ToString[Definition[sym], InputForm],False]][[1,1]] ]],ToString@att}]
+definitionString[sym][[1]],False]][[1,1]]
 
 
-def[s_String]:=ToExpression[s,InputForm,def]
+(* ::Text:: *)
+(*isDefinition determines if a definition string represents a useful definition. If the definition is null or just a list of attributes, the function returns False. The second argument controls whether to consider an option list as "useful".*)
+
+
+isDefinition[s_String,strict_:False]:=!StringMatchQ[s,"Attributes[*] = {*}"|"Null"|If[TrueQ@strict,"Options[*] = {*}",""]]
+
+
+(* ::Text:: *)
+(*hasAutoLoad determines if a symbol has an AutoLoad trigger*)
+
+
+SetAttributes[hasAutoLoad,HoldFirst]
+
+
+hasAutoLoad[sym_]:=StringMatchQ[First@definitionString[sym],"*:= System`Dump`AutoLoad[*"]
+
+
+(* ::Text:: *)
+(*autoLoadButton creates a button to AutoLoad and Spelunk a symbol*)
+
+
+SetAttributes[autoLoadButton,HoldFirst]
+
+
+autoLoadButton[sym_]:=MakeBoxes@Button["Autoload and Spelunk this function",sym;Spelunk[sym]]
 
 
 (* ::Subsection:: *)
@@ -79,11 +144,11 @@ def[s_String]:=ToExpression[s,InputForm,def]
 
 
 (* ::Text:: *)
-(*tidyup is a rule to identify strings within boxes which represent symbols and pass them through processsymbol.*)
-(*A string is considered to represent a symbol if it contains context marks and doesn't start with an explicit quote mark (so that string literals are left alone)*)
+(*symbolrules is a rule to identify strings within boxes which represent symbols and pass them through processsymbol.*)
+(*A string is considered to represent a symbol if it contains context marks and doesn't start with an explicit quote mark (so that string literals are left alone) and doesn't appear to be a number*)
 
 
-tidyup=s_String:>First@StringCases[s,{a:(c:Except["\""]..~~"`"~~b__)/;!StringMatchQ[c,NumberString]:>
+symbolrules=s_String:>First@StringCases[s,{a:(c:Except["\""]..~~"`"~~b__)/;!StringMatchQ[c,NumberString]:>
 processsymbol[a,b],other__:>other}];
 
 
@@ -93,16 +158,15 @@ processsymbol[a,b],other__:>other}];
 (*The definition of the symbol is then looked up :*)
 (*If the definition is "Null", this is a symbol with no definition available and a symbolbox is returned.*)
 (*If the definition is not "Null" a symbolbox is returned embedded into a button which runs Spelunk on that symbol.*)
-(**)
-(*processsymbol is memoized because it tends to get called multiple times for the same symbol.*)
 
 
-mem:processsymbol[full_, shrt_] :=mem= Module[{db,att},
-  Which[
+mem:processsymbol[full_, shrt_] :=mem= Module[{def,att},
+Which[
 !StringFreeQ[full, "_"],TooltipBox[shrt, full],
-{db,att} = def[full];
-db==="Null",symbolbox[shrt,full,att] ,
-True,ButtonBox[symbolbox[shrt,full,att], ButtonFunction:>Spelunk@full,BaseStyle->{},Evaluator->Automatic]]]
+{def,att} = definitionString[full];
+isDefinition[def],ButtonBox[symbolbox[shrt,full,att],
+ButtonFunction:>Spelunk@full,BaseStyle->{},Evaluator->Automatic],
+True,symbolbox[shrt,full,att]]]
 
 
 (* ::Subsection:: *)
@@ -110,10 +174,7 @@ True,ButtonBox[symbolbox[shrt,full,att], ButtonFunction:>Spelunk@full,BaseStyle-
 
 
 (* ::Text:: *)
-(*symbolbox takes the short and full names and attributes of a symbol and creates a box which:*)
-(*displays as the short name*)
-(*has a tooltip showing the full name and attributes (if any)*)
-(*can be right-clicked to copy the full name to the clipboard*)
+(*symbolbox takes the short and full names and attributes of a symbol and creates a box which displays as the short name but has a tooltip showing the full name and attributes (if any) and can be right-clicked to copy the full name to the clipboard*)
 
 
 symbolbox[shrt_,full_,att_]:=TagBox[TooltipBox[shrt,gbox[full,att]],
@@ -121,9 +182,7 @@ symbolbox[shrt_,full_,att_]:=TagBox[TooltipBox[shrt,gbox[full,att]],
 
 
 (* ::Text:: *)
-(*spelunkcellprint[boxes] creates an output cell with syntax highlighting. (Code from rcollyer)*)
-(*prettyboxes[boxes] adds line breaks and tabs to format the code nicely (Code from Leonid Shifrin)*)
-(*gbox[args] creates a GridBox with args in columns.*)
+(*spelunkcellprint creates an output cell with syntax highlighting. (Code from rcollyer)*)
 
 
 spelunkcellprint[boxes_]:=CellPrint[Cell[BoxData[boxes], "Output",
@@ -134,16 +193,28 @@ ShowAutoStyles->True,LanguageCategory->"Mathematica",
 FontWeight->"Bold",ShowStringCharacters->True]]
 
 
+(* ::Text:: *)
+(*prettyboxes adds line breaks and tabs to format the code nicely (Code from Leonid Shifrin)*)
+
+
 prettyboxes[boxes_]:=boxes/.{" "}->{"\n-----------\n"}//.{RowBox[{left___,";",next:Except["\n"],right___}]:>
 RowBox[{left,";","\n","\t",next,right}],RowBox[{sc:("Block"|"Module"|"With"),"[",RowBox[{vars_,",",body_}],"]"}]:>
 RowBox[{sc,"[",RowBox[{vars,",","\n\t",body}],"]"}]}
 
 
-output=spelunkcellprint @ prettyboxes @ #&;
+(* ::Text:: *)
+(*gbox creates a GridBox with args in columns*)
 
 
 gbox[args__,"{}"]:=gbox[args]
 gbox[args__]:=GridBox[Transpose[{{args}}]]
+
+
+(* ::Text:: *)
+(*output applies the formatting and prints the cell*)
+
+
+output=spelunkcellprint[prettyboxes[#]]&;
 
 
 End[]
